@@ -62,7 +62,7 @@ function initBkgnd() {
     backTex.Img.onload = function() {
         handleBkTex(backTex);
     }
-    backTex.Img.src = "2Dem.png";
+    backTex.Img.src = "BkGround.png";
 }
 
 function handleBkTex(tex) {
@@ -236,7 +236,7 @@ function initTextures() {
   cubeTexture = gl.createTexture();
   cubeImage = new Image();
   cubeImage.onload = function() { handleTextureLoaded(cubeImage, cubeTexture); }
-  cubeImage.src = "graf.png";
+  cubeImage.src = "Cube1.png";
 }
 
 function handleTextureLoaded(image, texture) {
