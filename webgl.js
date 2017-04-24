@@ -1,6 +1,5 @@
 var canvas;
 var gl;
-var intervalID;
 
 var cubeVerticesBuffer;
 var cubeVerticesTextureCoordBuffer;
@@ -9,16 +8,14 @@ var cubeVerticesIndexBuffer;
 var cubeRotation = 0.0;
 var lastCubeUpdateTime = 0;
 
+var cubeImage;
 var cubeTexture;
 
 var mvMatrix;
 var shaderProgram;
 var vertexPositionAttribute;
-var vertexNormalAttribute;
 var textureCoordAttribute;
 var perspectiveMatrix;
-
-var videoElement;
 
 //
 // start
@@ -28,14 +25,13 @@ var videoElement;
 function start() {
   canvas = document.getElementById("glcanvas");
 
-  videoElement = document.getElementById("video");
-
   initWebGL(canvas);      // Initialize the GL context
 
   // Only continue if WebGL is available and working
 
   if (gl) {
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);  // Clear to black, fully opaque
+    initBkgnd();
     gl.clearDepth(1.0);                 // Clear everything
     gl.enable(gl.DEPTH_TEST);           // Enable depth testing
     gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
@@ -54,16 +50,28 @@ function start() {
 
     initTextures();
 
-    // Start listening for the canplaythrough event, so we don't
-    // start playing the video until we can do so without stuttering
+    // Set up to draw the scene periodically.
 
-    videoElement.addEventListener("canplaythrough", startVideo, true);
-
-    // Start listening for the ended event, so we can stop the
-    // animation when the video is finished playing.
-
-    videoElement.addEventListener("ended", videoDone, true);
+    setInterval(drawScene, 15);
   }
+}
+
+function initBkgnd() {
+    backTex = gl.createTexture();
+    backTex.Img = new Image();
+    backTex.Img.onload = function() {
+        handleBkTex(backTex);
+    }
+    backTex.Img.src = "2Dem.png";
+}
+
+function handleBkTex(tex) {
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tex.Img);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
 //
@@ -151,52 +159,6 @@ function initBuffers() {
 
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
-  // Set up the normals for the vertices, so that we can compute lighting.
-
-  cubeVerticesNormalBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesNormalBuffer);
-
-  var vertexNormals = [
-    // Front
-     0.0,  0.0,  1.0,
-     0.0,  0.0,  1.0,
-     0.0,  0.0,  1.0,
-     0.0,  0.0,  1.0,
-
-    // Back
-     0.0,  0.0, -1.0,
-     0.0,  0.0, -1.0,
-     0.0,  0.0, -1.0,
-     0.0,  0.0, -1.0,
-
-    // Top
-     0.0,  1.0,  0.0,
-     0.0,  1.0,  0.0,
-     0.0,  1.0,  0.0,
-     0.0,  1.0,  0.0,
-
-    // Bottom
-     0.0, -1.0,  0.0,
-     0.0, -1.0,  0.0,
-     0.0, -1.0,  0.0,
-     0.0, -1.0,  0.0,
-
-    // Right
-     1.0,  0.0,  0.0,
-     1.0,  0.0,  0.0,
-     1.0,  0.0,  0.0,
-     1.0,  0.0,  0.0,
-
-    // Left
-    -1.0,  0.0,  0.0,
-    -1.0,  0.0,  0.0,
-    -1.0,  0.0,  0.0,
-    -1.0,  0.0,  0.0
-  ];
-
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexNormals),
-                gl.STATIC_DRAW);
-
   // Map the texture onto the cube's faces.
 
   cubeVerticesTextureCoordBuffer = gl.createBuffer();
@@ -272,45 +234,20 @@ function initBuffers() {
 //
 function initTextures() {
   cubeTexture = gl.createTexture();
+  cubeImage = new Image();
+  cubeImage.onload = function() { handleTextureLoaded(cubeImage, cubeTexture); }
+  cubeImage.src = "graf.png";
 }
 
-//
-// updateTexture
-//
-// Update the texture to contain the latest frame from
-// our video.
-//
-function updateTexture() {
-  gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+function handleTextureLoaded(image, texture) {
+  console.log("handleTextureLoaded, image = " + image);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
-        gl.UNSIGNED_BYTE, videoElement);
+        gl.UNSIGNED_BYTE, image);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
   gl.generateMipmap(gl.TEXTURE_2D);
   gl.bindTexture(gl.TEXTURE_2D, null);
-}
-
-//
-// startVideo
-//
-// Starts playing the video, so that it will start being used
-// as our texture.
-//
-function startVideo() {
-  videoElement.play();
-  videoElement.muted = true;
-  intervalID = setInterval(drawScene, 15);
-}
-
-//
-// videoDone
-//
-// Called when the video is done playing; this will terminate
-// the animation.
-//
-function videoDone() {
-  clearInterval(intervalID);
 }
 
 //
@@ -319,8 +256,6 @@ function videoDone() {
 // Draw the scene.
 //
 function drawScene() {
-  updateTexture();
-
   // Clear the canvas before we start drawing on it.
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -340,7 +275,7 @@ function drawScene() {
   // Now move the drawing position a bit to where we want to start
   // drawing the cube.
 
-  mvTranslate([0.0, 0.0, -6.0]);
+  mvTranslate([-0.0, 0.0, -6.0]);
 
   // Save the current matrix, then rotate before we draw.
 
@@ -357,11 +292,6 @@ function drawScene() {
 
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesTextureCoordBuffer);
   gl.vertexAttribPointer(textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
-
-  // Bind the normals buffer to the shader attribute.
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesNormalBuffer);
-  gl.vertexAttribPointer(vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
 
   // Specify the texture to map onto the faces.
 
@@ -420,9 +350,6 @@ function initShaders() {
 
   textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
   gl.enableVertexAttribArray(textureCoordAttribute);
-
-  vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
-  gl.enableVertexAttribArray(vertexNormalAttribute);
 }
 
 //
@@ -507,11 +434,6 @@ function setMatrixUniforms() {
 
   var mvUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
   gl.uniformMatrix4fv(mvUniform, false, new Float32Array(mvMatrix.flatten()));
-
-  var normalMatrix = mvMatrix.inverse();
-  normalMatrix = normalMatrix.transpose();
-  var nUniform = gl.getUniformLocation(shaderProgram, "uNormalMatrix");
-  gl.uniformMatrix4fv(nUniform, false, new Float32Array(normalMatrix.flatten()));
 }
 
 var mvMatrixStack = [];
@@ -536,7 +458,6 @@ function mvPopMatrix() {
 
 function mvRotate(angle, v) {
   var inRadians = angle * Math.PI / 180.0;
-
   var m = Matrix.Rotation(inRadians, $V([v[0], v[1], v[2]])).ensure4x4();
   multMatrix(m);
 }
