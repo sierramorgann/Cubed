@@ -236,7 +236,7 @@ function initTextures() {
   cubeTexture = gl.createTexture();
   cubeImage = new Image();
   cubeImage.onload = function() { handleTextureLoaded(cubeImage, cubeTexture); }
-  cubeImage.src = "Cube1.png";
+  cubeImage.src = "Cube.png";
 }
 
 function handleTextureLoaded(image, texture) {
@@ -273,7 +273,10 @@ function drawScene() {
   loadIdentity();
 
   // Now move the drawing position a bit to where we want to start
-  // drawing the cube.
+  // drawing the 
+  
+  
+  .
 
   mvTranslate([-0.0, 0.0, -6.0]);
 
